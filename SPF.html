@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spyfall - Web Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --primary: #3b82f6;
+            --spy-color: #ef4444;
+            --text-main: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Prompt', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: -webkit-linear-gradient(#60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Card Animation & 3D Settings */
+        .card-container {
+            perspective: 1000px;
+            width: 280px;
+            height: 400px;
+            margin: 30px auto;
+            cursor: pointer;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Front of the physical card (Hidden role) */
+        .card-front {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 2px solid #334155;
+        }
+
+        .card-front h2 {
+            font-size: 2rem;
+            color: #94a3b8;
+        }
+
+        /* Back of the physical card (Revealed role) */
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        .bg-spy {
+            background: radial-gradient(circle at top right, #7f1d1d, #450a0a);
+            border: 2px solid var(--spy-color);
+        }
+
+        .bg-loc {
+            background: radial-gradient(circle at top right, #1e3a8a, #0f172a);
+            border: 2px solid var(--primary);
+        }
+
+        .role-title { font-size: 1.5rem; margin-bottom: 10px; opacity: 0.9;}
+        .role-detail { font-size: 2.2rem; font-weight: 800; margin: 0; text-align: center;}
+
+        /* Controls */
+        input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            font-size: 1.2rem;
+            border-radius: 10px;
+            border: none;
+            text-align: center;
+            margin: 10px;
+            font-family: 'Prompt', sans-serif;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Prompt', sans-serif;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); }
+        
+        .btn-next { background: #10b981; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+        .btn-next:hover { background: #059669; }
+
+        .hidden { display: none !important; }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.5s ease forwards; }
+
+        .location-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+        .loc-badge {
+            background: #1e293b;
+            padding: 5px 12px;
+            border-radius: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="setupScreen" class="container animate-fade">
+        <h1>🕵️‍♂️ SPYFALL</h1>
+        <p>เกมจับสายลับ! ใครคือคนที่เนียนที่สุด?</p>
+        <div style="margin: 30px 0;">
+            <label style="font-size: 1.2rem; display: block;">จำนวนผู้เล่น (คน)</label>
+            <input type="number" id="playerCount" value="4" min="3" max="10">
+        </div>
+        <button class="btn" onclick="initGame()">เริ่มเกมทันที</button>
+    </div>
+
+    <div id="gameScreen" class="container hidden">
+        <h2 id="playerLabel" style="color: #60a5fa; margin-bottom: 0;">ผู้เล่นคนที่ 1</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">แตะที่การ์ดเพื่อดูบทบาทของคุณ</p>
+        
+        <div class="card-container" onclick="toggleCard()">
+            <div id="card" class="card">
+                <div class="card-face card-front">
+                    <h2>?</h2>
+                    <p style="color: #64748b; font-size: 0.9rem;">แตะเพื่อเปิด</p>
+                </div>
+                <div id="cardBack" class="card-face card-back bg-loc">
+                    <div id="roleTitle" class="role-title">📍 สถานที่:</div>
+                    <div id="roleDetail" class="role-detail">โรงพยาบาล</div>
+                </div>
+            </div>
+        </div>
+
+        <button id="actionBtn" class="btn btn-next hidden" onclick="nextPlayer()">ซ่อนการ์ด & ส่งต่อ</button>
+    </div>
+
+    <div id="endScreen" class="container hidden">
+        <h1 style="font-size: 2rem;">ทุกคนรู้บทบาทแล้ว!</h1>
+        <p style="font-size: 1.2rem; color: #f1f5f9;">เริ่มจับเวลาพูดคุยและหาตัว Spy ได้เลย!</p>
+        
+        <div style="margin-top: 30px; background: #1e293b; padding: 20px; border-radius: 15px;">
+            <h3 style="margin-top:0; color: #94a3b8;">รายชื่อสถานที่ทั้งหมด (สำหรับ Spy)</h3>
+            <div id="locList" class="location-list"></div>
+        </div>
+
+        <button class="btn" onclick="location.reload()" style="margin-top: 30px; background: #ef4444;">เริ่มเกมรอบใหม่</button>
+    </div>
+
+    <script>
+        // รายชื่อสถานที่ (สามารถเพิ่มลดได้ตามต้องการ)
+        const locations = [
+            "เครื่องบิน ✈️", "โรงพยาบาล 🏥", "คาสิโน 🎰", "ชายหาด 🏖️", 
+            "โรงเรียน 🏫", "เรือดำน้ำ 🚢", "สถานีอวกาศ 🚀", "ค่ายทหาร ⛺",
+            "สวนสัตว์ 🦁", "เรือโจรสลัด 🏴‍☠️", "โรงภาพยนตร์ 🎬", "ซูเปอร์มาร์เก็ต 🛒"
+        ];
+        
+        let players = 4;
+        let currentPlayer = 1;
+        let spyIndex = 0;
+        let currentLocation = "";
+        let isFlipped = false;
+
+        function initGame() {
+            players = parseInt(document.getElementById('playerCount').value);
+            if(players < 3) players = 3; // ขั้นต่ำ 3 คน
+            
+            // สุ่มตำแหน่ง Spy และสุ่มสถานที่
+            spyIndex = Math.floor(Math.random() * players) + 1;
+            currentLocation = locations[Math.floor(Math.random() * locations.length)];
+            currentPlayer = 1;
+            
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('gameScreen').classList.add('animate-fade');
+            
+            updateScreen();
+        }
+
+        function updateScreen() {
+            isFlipped = false;
+            document.getElementById('card').classList.remove('flipped');
+            document.getElementById('playerLabel').innerText = `ส่งมือถือให้ ผู้เล่นคนที่ ${currentPlayer}`;
+            document.getElementById('actionBtn').classList.add('hidden');
+            
+            // ป้องกันการกดดับเบิ้ลคลิก
+            setTimeout(() => {
+                document.querySelector('.card-container').style.pointerEvents = 'auto';
+            }, 300);
+        }
+
+        function toggleCard() {
+            if (isFlipped) return; // ถ้าหงายแล้วไม่ให้กดซ้ำ
+            isFlipped = true;
+            document.querySelector('.card-container').style.pointerEvents = 'none'; // ห้ามกดการ์ดซ้ำจนกว่าจะกดปุ่มส่งต่อ
+
+            const card = document.getElementById('card');
+            const cardBack = document.getElementById('cardBack');
+            const roleTitle = document.getElementById('roleTitle');
+            const roleDetail = document.getElementById('roleDetail');
+            const btn = document.getElementById('actionBtn');
+
+            card.classList.add('flipped');
+
+            // ตรวจสอบว่าเป็น Spy หรือคนปกติ
+            if (currentPlayer === spyIndex) {
+                cardBack.className = 'card-face card-back bg-spy';
+                roleTitle.innerText = "🕵️‍♂️ บทบาทของคุณคือ";
+                roleDetail.innerText = "SPY (สายลับ)";
+                roleDetail.style.color = "#fca5a5";
+            } else {
+                cardBack.className = 'card-face card-back bg-loc';
+                roleTitle.innerText = "📍 สถานที่คือ:";
+                roleDetail.innerText = currentLocation;
+                roleDetail.style.color = "#93c5fd";
+            }
+
+            // แสดงปุ่มดำเนินการต่อ
+            setTimeout(() => {
+                btn.classList.remove('hidden');
+                btn.classList.add('animate-fade');
+                if (currentPlayer < players) {
+                    btn.innerText = "ซ่อนการ์ด & ส่งต่อให้เพื่อน";
+                    btn.onclick = nextPlayer;
+                } else {
+                    btn.innerText = "ทุกคนดูเสร็จแล้ว เริ่มเกม!";
+                    btn.onclick = endGameSetup;
+                }
+            }, 600); // รอให้อนิเมชันการ์ดหมุนเสร็จก่อนแสดงปุ่ม
+        }
+
+        function nextPlayer() {
+            currentPlayer++;
+            updateScreen();
+        }
+
+        function endGameSetup() {
+            document.getElementById('gameScreen').classList.add('hidden');
+            const endScreen = document.getElementById('endScreen');
+            endScreen.classList.remove('hidden');
+            endScreen.classList.add('animate-fade');
+
+            // แสดงรายชื่อสถานที่ให้ Spy เอาไว้เดา
+            const locList = document.getElementById('locList');
+            locList.innerHTML = '';
+            locations.forEach(loc => {
+                const span = document.createElement('span');
+                span.className = 'loc-badge';
+                span.innerText = loc;
+                locList.appendChild(span);
+            });
+        }
+    </script>
+</body>
+</html>
